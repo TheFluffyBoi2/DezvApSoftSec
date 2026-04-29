@@ -1,0 +1,16 @@
+{% extends "base.html" %} {% block content %}
+<h2>Login</h2>
+<form method="post">
+  <label>Email</label><br />
+  <input name="email" /><br /><br />
+  <label>Password</label><br />
+  <input name="password" type="password" /><br /><br />
+  <button type="submit">Login</button>
+</form>
+<br />
+<form action="{{ url_for('generate_reset_token') }}" method="post">
+  <label>Email pentru resetare parolă</label><br />
+  <input name="email" type="email" required /><br /><br />
+  <button type="submit">Am uitat parola</button>
+</form>
+{% endblock %}

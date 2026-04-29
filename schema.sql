@@ -6,6 +6,9 @@ CREATE TABLE users (
     password_hash TEXT NOT NULL,
     role TEXT NOT NULL CHECK (role in ('USER', 'ADMIN')),
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    password_reset_token TEXT,
-    locked BOOLEAN
+    password_reset_token TEXT DEFAULT NULL,
+    token_expire_at TEXT DEFAULT NULL,
+    failed_attempts INTEGER DEFAULT 0,
+    locked BOOLEAN DEFAULT 0,
+    unlocked_at TEXT DEFAULT NULL,
 );

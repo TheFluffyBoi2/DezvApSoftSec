@@ -7,6 +7,8 @@ from datetime import timedelta, datetime, timedelta
 from hashlib import md5
 from dotenv import load_dotenv
 from flask import Flask, render_template, session, request, redirect, url_for, flash, abort
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from db import get_db, close_db, init_db
 
 load_dotenv()
@@ -17,6 +19,13 @@ app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SECURE"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(minutes=30)
+
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=["200 per day", "50 per hour"],
+    storage_uri="memory://"
+)
 
 @app.cli.command("init-db")
 def init_db_command():
@@ -114,6 +123,7 @@ def register():
 
 
 @app.route("/login", methods=["GET", "POST"])
+@limiter.limit("10 per minute", error_message="Prea multe încercări.")
 def login():
     if request.method == "POST":
         email = (request.form.get("email") or "").strip()
@@ -254,3 +264,9 @@ def reset_password(token):
         return redirect(url_for("login"))
 
     return render_template("reset_password.html", token=token)
+
+
+@app.errorhandler(429)
+def ratelimit_handler(e):
+    flash(str(e.description))
+    return render_template("login.html"), 429

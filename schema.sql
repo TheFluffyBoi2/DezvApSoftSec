@@ -10,5 +10,5 @@ CREATE TABLE users (
     token_expire_at TEXT DEFAULT NULL,
     failed_attempts INTEGER DEFAULT 0,
     locked BOOLEAN DEFAULT 0,
-    unlocked_at TEXT DEFAULT NULL,
+    unlocked_at TEXT DEFAULT NULL
 );

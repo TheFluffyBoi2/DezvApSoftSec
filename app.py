@@ -23,9 +23,11 @@ def init_db_command():
     init_db()
     print("Baza de date a fost initializata.")
 
+
 @app.teardown_appcontext
 def teardown_db(exception):
     close_db(exception)
+
 
 def current_user():
     uid = session.get("user_id")
@@ -34,9 +36,11 @@ def current_user():
     db = get_db()
     return db.execute("SELECT * FROM users WHERE id = ?", (uid,)).fetchone()
 
+
 def login_required():
     if not session.get("user_id"):
         abort(401)
+
 
 @app.get("/")
 def home():
@@ -45,9 +49,15 @@ def home():
         return redirect(url_for("profile"))
     return redirect(url_for("login"))
 
+
+def verify_email(email):
+    regex = r"^[a-zA-Z0-9._%+-]+@+[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+    return re.match(regex, email) is not None
+
+
 def verify_password(password):
     if len(password) < 8:
-        return False, "Parola trebuie să aibe un minim de 8 caractere."
+        return False, "Parola trebuie să aibă un minim de 8 caractere."
     if not re.search(r"[A-Z]", password):
         return False, "Parola trebuie să conțină cel puțin o literă mare (A-Z)."
     if not re.search(r"[a-z]", password):
@@ -57,6 +67,7 @@ def verify_password(password):
     if not re.search(r"[!?@#$%^&*]", password):
         return False, "Parola trebuie să conțină cel puțin un caracter special (!?@#$%^&*)."
     return True, ""
+
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
@@ -68,14 +79,19 @@ def register():
             flash("Email-ul si parola sunt obligatorii.")
             return render_template("register.html")
 
-        is_valid, error = verify_password(password)
-        if not is_valid:
+        is_valid_email = verify_email(email)
+        if not is_valid_email:
+            flash("Introdu o adresă de email validă.")
+            return render_template("register.html")
+
+        is_valid_password, error = verify_password(password)
+        if not is_valid_password:
             flash(error)
             return render_template("register.html")
 
         bytes = password.encode("utf-8")
         salt = bcrypt.gensalt()
-        password_hash = bcrypt.hashpw(bytes, salt)
+        password_hash = bcrypt.hashpw(bytes, salt).decode("utf-8")
 
         db = get_db()
         try:
@@ -96,6 +112,7 @@ def register():
 
     return render_template("register.html")
 
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -115,13 +132,16 @@ def login():
                 if user["unlocked_at"]:
                     unlock_time = datetime.fromisoformat(user["unlocked_at"])
                     if now < unlock_time:
-                        time_remaining = int((unlock_time - now).total_seconds() / 60)
                         flash("Contul este blocat.")
                         return render_template("login.html")
                     else:
                         db.execute("UPDATE users SET locked = 0, failed_attempts = 0, unlocked_at = NULL WHERE id = ?",
                                    (user["id"],))
                         db.commit()
+                else:
+                    db.execute("UPDADTE users SET locked = 0, failed_attempts = 0 WHERE id = ?",
+                               (user["id"],))
+                    db.commit()
             if bcrypt.checkpw(password.encode("utf-8"), user["password_hash"].encode("utf-8")):
                 db.execute("UPDATE users SET failed_attempts = 0 WHERE id = ?", (user["id"],))
                 db.commit()
@@ -140,16 +160,17 @@ def login():
                                (new_failed_attempts, user["id"]))
                 db.commit()
 
-        else:
-            flash("Date de autentificare invalide.")
-            return render_template("login.html")
+        flash("Date de autentificare invalide.")
+        return render_template("login.html")
 
     return render_template("login.html")
+
 
 @app.post("/logout")
 def logout():
     session.clear()
     return redirect(url_for("login"))
+
 
 @app.route("/profile", methods=["GET", "POST"])
 def profile():
@@ -157,9 +178,16 @@ def profile():
     user = current_user()
     return render_template("profile.html", user=user)
 
+
 @app.post("/generate-reset-token")
 def generate_reset_token():
     email = (request.form.get("email") or "").strip()
+
+    is_valid_email = verify_email(email)
+
+    if not is_valid_email:
+        flash("Introdu o adresă de email validă.")
+        return render_template("login.html")
 
     if not email:
         flash("Introdu adresa de email.")
@@ -188,10 +216,11 @@ def generate_reset_token():
 
     return redirect(url_for("login"))
 
+
 @app.route("/reset-password/<token>", methods=["GET", "POST"])
 def reset_password(token):
     db = get_db()
-    now = datetime.now()
+    now = datetime.now().isoformat()
 
     user = db.execute(
         "SELECT * FROM users WHERE password_reset_token = ? AND token_expire_at > ?",
@@ -213,7 +242,7 @@ def reset_password(token):
 
         bytes = password.encode("utf-8")
         salt = bcrypt.gensalt()
-        password_hash = bcrypt.hashpw(bytes, salt)
+        password_hash = bcrypt.hashpw(bytes, salt).decode("utf-8")
 
         db.execute(
             "UPDATE users SET password_hash = ?, password_reset_token = NULL, token_expire_at = NULL WHERE id = ?",
